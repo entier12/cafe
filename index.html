@@ -10,8 +10,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
     <!-- Chosen Palette: Warm Neutrals (Stone, Amber) -->
-    <!-- Application Structure Plan: A responsive, two-column dashboard-style calculator. The left column contains all user inputs (costs, margins), grouped logically. The right column displays the calculated results and a dynamic doughnut chart visualizing the cost breakdown. This structure provides immediate feedback and allows users to easily conduct "what-if" analysis by adjusting inputs and seeing the impact on the price and cost structure instantly, making the complex calculation process intuitive and user-friendly. A modal for calculation breakdown is added for transparency, and a new modal for detailed roasting labor cost calculation is also introduced for better granularity. A separate settings modal is added to allow users to configure default input values. -->
-    <!-- Visualization & Content Choices: Report Info: Cost components (bean cost, loss, labor, etc.), VAT, detailed labor cost, default input values. Goal: Allow users to calculate and understand their pricing structure, including VAT, see step-by-step calculations, precisely determine roasting labor costs, and customize default input values for convenience. Viz/Presentation: Interactive form with number inputs and sliders. Dynamic text fields for results. A dynamic doughnut chart for visualizing cost proportions (including VAT). A modal popup for detailed calculation breakdown. A new dedicated modal for roasting labor cost calculation. A new settings modal for default value configuration. Interaction: All input fields trigger immediate recalculation and chart update. Dedicated buttons trigger both the main calculation breakdown modal and the new roasting labor cost calculation modal. A new button triggers the default settings modal, whose changes persist upon application (not just for one session). Justification: This interactive approach provides instant visual feedback, step-by-step transparency, granular control over specific cost components, and enhanced user convenience through customizable defaults. Library/Method: Vanilla JS for logic, Chart.js for the doughnut chart on a Canvas element. -->
+    <!-- Application Structure Plan: A responsive, two-column dashboard-style calculator. The left column contains all user inputs (costs, margins), grouped logically. The right column displays the calculated results and a dynamic doughnut chart visualizing the cost breakdown. This structure provides immediate feedback and allows users to easily conduct "what-if" analysis by adjusting inputs and seeing the impact on the price and cost structure instantly, making the complex calculation process intuitive and user-friendly. A modal for calculation breakdown is added for transparency, and a new modal for detailed roasting labor cost calculation is also introduced for better granularity. A separate settings modal is added to allow users to configure default input values. A new "Price History" section is added below the main results to store and display saved final prices. -->
+    <!-- Visualization & Content Choices: Report Info: Cost components (bean cost, loss, labor, etc.), VAT, detailed labor cost, default input values, price history. Goal: Allow users to calculate and understand their pricing structure, including VAT, see step-by-step calculations, precisely determine roasting labor costs, customize default input values for convenience, and record/review past calculations. Viz/Presentation: Interactive form with number inputs and sliders. Dynamic text fields for results. A dynamic doughnut chart for visualizing cost proportions (including VAT). Modal popups for detailed calculation breakdown, roasting labor cost calculation, and default settings. A list for price history entries with customizable names, price, profit, and margin displayed. Interaction: All input fields trigger immediate recalculation and chart update. Dedicated buttons trigger both the main calculation breakdown modal and the new roasting labor cost calculation modal. A new button triggers the default settings modal. A "Save" button records the current final price to local storage. A "Clear History" button clears all saved records. Justification: This interactive approach provides instant visual feedback, step-by-step transparency, granular control over specific cost components, enhanced user convenience through customizable defaults, and historical tracking for comparative analysis or record-keeping, now with improved overview in the history. Library/Method: Vanilla JS for logic, Chart.js for the doughnut chart on a Canvas element, localStorage for client-side persistence of price history. -->
     <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
     <style>
         body {
@@ -21,7 +21,8 @@
             @apply block text-sm font-medium text-gray-600 mb-1;
         }
         .input-field {
-            @apply w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-amber-500 focus:border-amber-500;
+            /* Changed background to bg-gray-100 for better visibility */
+            @apply w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-amber-500 focus:border-amber-500 bg-gray-100;
         }
         .slider-value {
             @apply text-lg font-bold text-amber-700 ml-2;
@@ -165,9 +166,20 @@
                 <div class="result-card text-center">
                     <h2 class="text-2xl font-bold mb-4 border-b pb-2 text-gray-700">2. 최종 판매가</h2>
                     <p class="result-label">권장 소비자 가격</p>
-                    <p id="finalPrice" class="final-price my-2">0 원</p>
+                    <div class="flex items-center justify-center gap-2">
+                        <p id="finalPrice" class="final-price my-2">0 원</p>
+                    </div>
                      <p class="text-sm text-gray-500">(부가세, 카드 수수료 포함)</p>
-                     <button id="showBreakdownBtn" class="mt-4 px-6 py-2 bg-amber-500 text-white rounded-md shadow-md hover:bg-amber-600 transition-colors">
+                     
+                     <div class="mt-4">
+                        <label for="historyNameInput" class="sr-only">기록 이름</label>
+                        <input type="text" id="historyNameInput" class="input-field text-center mb-2" placeholder="기록 이름 (선택 사항)">
+                        <button id="savePriceBtn" class="px-6 py-2 bg-green-500 text-white rounded-md shadow-md hover:bg-green-600 transition-colors w-full">
+                            현재 가격 기록하기
+                        </button>
+                    </div>
+
+                     <button id="showBreakdownBtn" class="mt-4 px-6 py-2 bg-amber-500 text-white rounded-md shadow-md hover:bg-amber-600 transition-colors w-full">
                         계산 과정 보기
                     </button>
                 </div>
@@ -200,6 +212,19 @@
                 </div>
             </div>
         </main>
+
+        <!-- Price History Section -->
+        <section class="mt-8 bg-white p-6 rounded-lg shadow-md border border-gray-200">
+            <div class="flex justify-between items-center mb-4 border-b pb-2">
+                <h2 class="text-2xl font-bold text-gray-700">3. 가격 기록</h2>
+                <button id="clearHistoryBtn" class="px-4 py-2 bg-red-500 text-white rounded-md shadow-md hover:bg-red-600 transition-colors text-sm">
+                    모두 삭제
+                </button>
+            </div>
+            <ul id="priceHistoryList" class="space-y-3">
+                <li class="text-gray-500 text-center py-4">기록된 가격이 없습니다.</li>
+            </ul>
+        </section>
     </div>
 
     <!-- Calculation Breakdown Modal -->
@@ -337,8 +362,8 @@
                 batchSizeKg: document.getElementById('batchSizeKg'),
                 calculatedLaborCostDisplay: document.getElementById('calculatedLaborCost'),
                 applyBtn: document.getElementById('applyLaborCostBtn'),
-                unitWeightDisplay: document.getElementById('laborCostUnitWeightDisplay'), // New span for display
-                resultUnitWeightDisplay: document.getElementById('laborCostResultUnitWeight') // New span for result display
+                unitWeightDisplay: document.getElementById('laborCostUnitWeightDisplay'),
+                resultUnitWeightDisplay: document.getElementById('laborCostResultUnitWeight')
             };
 
             const settingsModalElements = {
@@ -356,8 +381,15 @@
                 defaultTargetMargin: document.getElementById('defaultTargetMargin')
             };
 
+            const historyElements = {
+                saveBtn: document.getElementById('savePriceBtn'),
+                nameInput: document.getElementById('historyNameInput'), // New name input
+                list: document.getElementById('priceHistoryList'),
+                clearBtn: document.getElementById('clearHistoryBtn')
+            };
+
             let costChart;
-            let currentBreakdownData = {};
+            let currentBreakdownData = {}; // To store intermediate calculation results for breakdown
 
             const formatCurrency = (value) => {
                 return new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW' }).format(value);
@@ -381,14 +413,12 @@
                 displays.vatRateValue.textContent = `${vatRate}%`;
                 displays.targetMarginValue.textContent = `${targetMargin}%`;
 
-                // Update the unit weight display in the labor cost modal (for informational text)
                 if (laborCostModalElements.unitWeightDisplay) {
                     laborCostModalElements.unitWeightDisplay.textContent = `판매 단위(${unitWeightG}g)`;
                 }
                 if (laborCostModalElements.resultUnitWeightDisplay) {
                     laborCostModalElements.resultUnitWeightDisplay.textContent = `${unitWeightG}g`;
                 }
-
 
                 let roastedBeanCostPerKg = 0;
                 if (1 - roastingLoss / 100 > 0) {
@@ -425,9 +455,9 @@
                     packagingCost,
                     processingCostPerUnit,
                     totalCostPerUnit,
-                    targetMargin,
+                    targetMargin, // Store target margin
                     priceBeforeVATAndFee,
-                    profitAmount,
+                    profitAmount, // Store profit amount
                     vatRate,
                     vatAmount,
                     priceIncludingVAT,
@@ -573,7 +603,6 @@
 
             const showLaborCostModal = () => {
                 laborCostModalElements.modal.classList.add('show');
-                // Update the unit weight display in the labor cost modal when it opens
                 if (laborCostModalElements.unitWeightDisplay) {
                     laborCostModalElements.unitWeightDisplay.textContent = `판매 단위(${inputs.unitWeight.value}g)`;
                 }
@@ -626,7 +655,100 @@
                 hideSettingsModal();
                 calculate(); // Recalculate main app with new defaults
             };
-            
+
+            // History functions
+            const loadPriceHistory = () => {
+                const history = JSON.parse(localStorage.getItem('priceHistory')) || [];
+                historyElements.list.innerHTML = ''; // Clear current list
+                if (history.length === 0) {
+                    historyElements.list.innerHTML = '<li class="text-gray-500 text-center py-4">기록된 가격이 없습니다.</li>';
+                    return;
+                }
+                history.forEach(item => {
+                    const listItem = document.createElement('li');
+                    listItem.className = 'flex flex-col sm:flex-row justify-between items-start sm:items-center p-3 bg-stone-50 rounded-md shadow-sm';
+                    listItem.innerHTML = `
+                        <div class="flex-1 w-full sm:w-auto mb-2 sm:mb-0">
+                            <p class="font-bold text-gray-800 text-lg">${item.name || '이름 없음'}</p>
+                            <p class="text-xs text-gray-500">${item.date}</p>
+                        </div>
+                        <div class="flex flex-col sm:flex-row items-start sm:items-center sm:space-x-4">
+                            <p class="text-gray-700">판매가: <span class="font-semibold">${formatCurrency(item.finalPrice)}</span></p>
+                            <p class="text-gray-700">이윤: <span class="font-semibold">${formatCurrency(item.profitAmount)}</span></p>
+                            <p class="text-gray-700">마진율: <span class="font-semibold">${item.targetMargin}%</span></p>
+                            <button class="text-amber-600 hover:underline text-sm mt-2 sm:mt-0" data-inputs='${JSON.stringify(item.inputs)}'>세부 정보</button>
+                        </div>
+                    `;
+                    historyElements.list.appendChild(listItem);
+                });
+                addHistoryDetailListeners();
+            };
+
+            const saveCurrentPriceToHistory = () => {
+                const finalPriceValue = parseFloat(currentBreakdownData.finalPrice) || 0;
+                if (finalPriceValue === 0) {
+                    // Optionally show a message that price is 0 and cannot be saved
+                    return;
+                }
+
+                const history = JSON.parse(localStorage.getItem('priceHistory')) || [];
+                const now = new Date();
+                const dateTimeString = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+                
+                const recordName = historyElements.nameInput.value.trim();
+                
+                const newEntry = {
+                    name: recordName || `기록 ${dateTimeString}`, // Use custom name or default
+                    finalPrice: finalPriceValue,
+                    date: dateTimeString,
+                    profitAmount: currentBreakdownData.profitAmount, // Include profit
+                    targetMargin: currentBreakdownData.targetMargin, // Include target margin
+                    inputs: { // Save current input values for context
+                        greenBeanCost: inputs.greenBeanCost.value,
+                        roastingLoss: inputs.roastingLoss.value,
+                        unitWeight: inputs.unitWeight.value,
+                        roastingLabor: inputs.roastingLabor.value,
+                        packagingCost: inputs.packagingCost.value,
+                        cardFee: inputs.cardFee.value,
+                        vatRate: inputs.vatRate.value,
+                        targetMargin: inputs.targetMargin.value
+                    }
+                };
+                history.unshift(newEntry); // Add to the beginning
+                localStorage.setItem('priceHistory', JSON.stringify(history));
+                loadPriceHistory();
+                historyElements.nameInput.value = ''; // Clear name input after saving
+            };
+
+            const clearPriceHistory = () => {
+                localStorage.removeItem('priceHistory');
+                loadPriceHistory();
+            };
+
+            const addHistoryDetailListeners = () => {
+                historyElements.list.querySelectorAll('button[data-inputs]').forEach(button => {
+                    button.addEventListener('click', (event) => {
+                        const inputsData = JSON.parse(event.target.dataset.inputs);
+                        let detailHTML = `
+                            <p class="breakdown-step"><strong>생두 단가:</strong> ${formatCurrency(inputsData.greenBeanCost)}/kg</p>
+                            <p class="breakdown-step"><strong>로스팅 감량률:</strong> ${inputsData.roastingLoss}%</p>
+                            <p class="breakdown-step"><strong>판매 단위:</strong> ${inputsData.unitWeight}g</p>
+                            <p class="breakdown-step"><strong>로스팅 인건비:</strong> ${formatCurrency(inputsData.roastingLabor)} (판매 단위당)</p>
+                            <p class="breakdown-step"><strong>포장재 비용:</strong> ${formatCurrency(inputsData.packagingCost)} (판매 단위당)</p>
+                            <p class="breakdown-step"><strong>카드 결제 수수료:</strong> ${inputsData.cardFee}%</p>
+                            <p class="breakdown-step"><strong>부가세:</strong> ${inputsData.vatRate}%</p>
+                            <p class="breakdown-step"><strong>목표 마진율:</strong> ${inputsData.targetMargin}%</p>
+                        `;
+                        breakdownElements.content.innerHTML = `
+                            <h3 class="text-xl font-bold mb-4">기록된 가격 세부 정보</h3>
+                            ${detailHTML}
+                        `;
+                        breakdownElements.modal.classList.add('show');
+                    });
+                });
+            };
+
+
             // Event Listeners for main inputs
             Object.values(inputs).forEach(input => {
                 input.addEventListener('input', calculate);
@@ -664,9 +786,15 @@
                 }
             });
 
-            // Initial calculation
+            // Event Listeners for History
+            historyElements.saveBtn.addEventListener('click', saveCurrentPriceToHistory);
+            historyElements.clearBtn.addEventListener('click', clearPriceHistory);
+
+
+            // Initial load and calculation
             initChart();
             calculate();
+            loadPriceHistory(); // Load history on initial page load
         });
     </script>
 </body>
