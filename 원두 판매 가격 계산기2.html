@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>인터랙티브 원두 가격 계산기</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Neutrals (Stone, Amber) -->
+    <!-- Application Structure Plan: A responsive, two-column dashboard-style calculator. The left column contains all user inputs (costs, margins), grouped logically. The right column displays the calculated results and a dynamic doughnut chart visualizing the cost breakdown. This structure provides immediate feedback and allows users to easily conduct "what-if" analysis by adjusting inputs and seeing the impact on the price and cost structure instantly, making the complex calculation process intuitive and user-friendly. A modal for calculation breakdown is added for transparency. -->
+    <!-- Visualization & Content Choices: Report Info: Cost components (bean cost, loss, labor, etc.), VAT. Goal: Allow users to calculate and understand their pricing structure, including VAT, and see step-by-step calculations. Viz/Presentation: Interactive form with number inputs and sliders. Dynamic text fields for results. A dynamic doughnut chart for visualizing cost proportions (including VAT). A modal popup for detailed calculation breakdown. Interaction: All input fields trigger immediate recalculation and chart update. A dedicated button triggers the calculation breakdown modal. Justification: This interactive approach provides instant visual feedback and step-by-step transparency, enhancing user understanding far beyond a static spreadsheet. Library/Method: Vanilla JS for logic, Chart.js for the doughnut chart on a Canvas element. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+        }
+        .input-group label {
+            @apply block text-sm font-medium text-gray-600 mb-1;
+        }
+        .input-field {
+            @apply w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-amber-500 focus:border-amber-500;
+        }
+        .slider-value {
+            @apply text-lg font-bold text-amber-700 ml-2;
+        }
+        .result-card {
+            @apply bg-white p-6 rounded-lg shadow-lg;
+        }
+        .result-label {
+            @apply text-lg text-gray-600;
+        }
+        .result-value {
+            @apply text-3xl font-bold text-gray-900;
+        }
+        .final-price {
+            @apply text-5xl font-extrabold text-amber-600;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 350px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+        }
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .modal-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+            max-width: 90%;
+            max-height: 90%;
+            overflow-y: auto;
+            transform: translateY(-20px);
+            transition: transform 0.3s ease;
+        }
+        .modal-overlay.show .modal-content {
+            transform: translateY(0);
+        }
+        .modal-close-button {
+            @apply absolute top-3 right-3 text-gray-500 hover:text-gray-700 text-2xl font-bold;
+        }
+        .breakdown-step {
+            @apply border-b border-gray-200 pb-2 mb-2 last:border-b-0 last:pb-0 last:mb-0;
+        }
+    </style>
+</head>
+<body class="bg-stone-50 text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-8 md:mb-12">
+            <h1 class="text-4xl md:text-5xl font-bold text-gray-800">원두 가격 계산기</h1>
+            <p class="mt-2 text-lg text-gray-600">원가와 마진을 입력하여 원두의 최종 판매 가격을 산정하세요.</p>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-5 gap-8">
+            <!-- Input Section -->
+            <div class="lg:col-span-3 bg-white p-6 rounded-lg shadow-md border border-gray-200">
+                <h2 class="text-2xl font-bold mb-6 border-b pb-2 text-gray-700">1. 비용 입력</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- 원재료비 -->
+                    <div class="space-y-4 p-4 border rounded-lg bg-stone-50">
+                        <h3 class="font-bold text-lg text-gray-700">원재료비</h3>
+                        <div class="input-group">
+                            <label for="greenBeanCost">생두 단가 (kg당)</label>
+                            <input type="number" id="greenBeanCost" class="input-field" value="15000">
+                        </div>
+                        <div class="input-group">
+                            <label for="roastingLoss">로스팅 감량률 <span id="roastingLossValue" class="slider-value">15%</span></label>
+                            <input type="range" id="roastingLoss" min="5" max="25" value="15" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-amber-600">
+                        </div>
+                    </div>
+
+                    <!-- 가공비 -->
+                    <div class="space-y-4 p-4 border rounded-lg bg-stone-50">
+                        <h3 class="font-bold text-lg text-gray-700">가공비 (판매 단위당)</h3>
+                         <div class="input-group">
+                            <label for="unitWeight">판매 단위 (g)</label>
+                            <input type="number" id="unitWeight" class="input-field" value="200">
+                        </div>
+                        <div class="input-group">
+                            <label for="roastingLabor">로스팅 인건비</label>
+                            <input type="number" id="roastingLabor" class="input-field" value="300">
+                        </div>
+                         <div class="input-group">
+                            <label for="packagingCost">포장재 비용</label>
+                            <input type="number" id="packagingCost" class="input-field" value="500">
+                        </div>
+                    </div>
+
+                    <!-- 추가 비용 및 마진 -->
+                    <div class="md:col-span-2 space-y-4 p-4 border rounded-lg bg-stone-50">
+                        <h3 class="font-bold text-lg text-gray-700">수수료 및 마진</h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                            <div class="input-group">
+                                <label for="cardFee">카드 결제 수수료 <span id="cardFeeValue" class="slider-value">2.5%</span></label>
+                                <input type="range" id="cardFee" min="0" max="5" step="0.1" value="2.5" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-amber-600">
+                            </div>
+                            <div class="input-group">
+                                <label for="vatRate">부가세 (VAT) <span id="vatRateValue" class="slider-value">10%</span></label>
+                                <input type="range" id="vatRate" min="0" max="20" value="10" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-amber-600">
+                            </div>
+                            <div class="input-group">
+                                <label for="targetMargin">목표 마진율 <span id="targetMarginValue" class="slider-value">40%</span></label>
+                                <input type="range" id="targetMargin" min="10" max="80" value="40" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-amber-600">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Result Section -->
+            <div class="lg:col-span-2 space-y-6">
+                <div class="result-card text-center">
+                    <h2 class="text-2xl font-bold mb-4 border-b pb-2 text-gray-700">2. 최종 판매가</h2>
+                    <p class="result-label">권장 소비자 가격</p>
+                    <p id="finalPrice" class="final-price my-2">0 원</p>
+                     <p class="text-sm text-gray-500">(부가세, 카드 수수료 포함)</p>
+                     <button id="showBreakdownBtn" class="mt-4 px-6 py-2 bg-amber-500 text-white rounded-md shadow-md hover:bg-amber-600 transition-colors">
+                        계산 과정 보기
+                    </button>
+                </div>
+
+                <div class="result-card">
+                    <h3 class="text-xl font-bold mb-4 text-gray-700">가격 구성 요소</h3>
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600">총 원가 (단위당)</span>
+                            <span id="totalCost" class="font-bold text-lg">0 원</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600">이윤 (마진)</span>
+                            <span id="profit" class="font-bold text-lg">0 원</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600">부가세</span>
+                            <span id="vatAmount" class="font-bold text-lg">0 원</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600">결제 수수료</span>
+                            <span id="feeAmount" class="font-bold text-lg">0 원</span>
+                        </div>
+                    </div>
+                    <div class="mt-6">
+                         <div class="chart-container">
+                            <canvas id="costStructureChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Calculation Breakdown Modal -->
+    <div id="breakdownModal" class="modal-overlay">
+        <div class="modal-content relative">
+            <button id="closeModalBtn" class="modal-close-button">&times;</button>
+            <h3 class="text-2xl font-bold mb-4 border-b pb-2 text-gray-700">계산 과정</h3>
+            <div id="breakdownContent" class="text-gray-700 space-y-3">
+                <!-- Calculation steps will be inserted here by JS -->
+            </div>
+        </div>
+    </div>
+
+    <footer class="mt-8 py-4 text-center text-gray-500 text-sm">
+        <p>만든 사람: <a href="https://www.instagram.com/rangxmin" target="_blank" class="text-amber-600 hover:underline">@rangxmin</a></p>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const inputs = {
+                greenBeanCost: document.getElementById('greenBeanCost'),
+                roastingLoss: document.getElementById('roastingLoss'),
+                unitWeight: document.getElementById('unitWeight'),
+                roastingLabor: document.getElementById('roastingLabor'),
+                packagingCost: document.getElementById('packagingCost'),
+                cardFee: document.getElementById('cardFee'),
+                vatRate: document.getElementById('vatRate'), // New VAT input
+                targetMargin: document.getElementById('targetMargin')
+            };
+
+            const displays = {
+                roastingLossValue: document.getElementById('roastingLossValue'),
+                cardFeeValue: document.getElementById('cardFeeValue'),
+                vatRateValue: document.getElementById('vatRateValue'), // New VAT display
+                targetMarginValue: document.getElementById('targetMarginValue'),
+                finalPrice: document.getElementById('finalPrice'),
+                totalCost: document.getElementById('totalCost'),
+                profit: document.getElementById('profit'),
+                vatAmount: document.getElementById('vatAmount'), // New VAT amount display
+                feeAmount: document.getElementById('feeAmount')
+            };
+
+            const breakdownElements = {
+                modal: document.getElementById('breakdownModal'),
+                content: document.getElementById('breakdownContent'),
+                showBtn: document.getElementById('showBreakdownBtn'),
+                closeBtn: document.getElementById('closeModalBtn')
+            };
+
+            let costChart;
+            let currentBreakdownData = {}; // To store intermediate calculation results for breakdown
+
+            const formatCurrency = (value) => {
+                return new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW' }).format(value);
+            };
+
+            const calculate = () => {
+                const greenBeanCost = parseFloat(inputs.greenBeanCost.value) || 0;
+                const roastingLoss = parseFloat(inputs.roastingLoss.value) || 0;
+                const unitWeightG = parseFloat(inputs.unitWeight.value) || 0;
+                const unitWeightKg = unitWeightG / 1000; // Convert grams to kilograms
+                
+                const roastingLabor = parseFloat(inputs.roastingLabor.value) || 0;
+                const packagingCost = parseFloat(inputs.packagingCost.value) || 0;
+
+                const cardFee = parseFloat(inputs.cardFee.value) || 0;
+                const vatRate = parseFloat(inputs.vatRate.value) || 0; // Get VAT rate
+                const targetMargin = parseFloat(inputs.targetMargin.value) || 0;
+                
+                // Update slider display values
+                displays.roastingLossValue.textContent = `${roastingLoss}%`;
+                displays.cardFeeValue.textContent = `${cardFee.toFixed(1)}%`;
+                displays.vatRateValue.textContent = `${vatRate}%`; // Update VAT display
+                displays.targetMarginValue.textContent = `${targetMargin}%`;
+
+                // --- Calculations ---
+                // 1. Roasted Bean Cost Per Kg
+                let roastedBeanCostPerKg = 0;
+                if (1 - roastingLoss / 100 > 0) {
+                    roastedBeanCostPerKg = greenBeanCost / (1 - roastingLoss / 100);
+                }
+                
+                // 2. Material Cost Per Unit (e.g., per 200g bag)
+                const materialCostPerUnit = roastedBeanCostPerKg * unitWeightKg;
+
+                // 3. Processing Cost Per Unit
+                const processingCostPerUnit = roastingLabor + packagingCost;
+                
+                // 4. Total Cost Per Unit (Cost of Goods Sold)
+                const totalCostPerUnit = materialCostPerUnit + processingCostPerUnit;
+
+                // 5. Price Before VAT & Card Fee (Total Cost + Profit)
+                let priceBeforeVATAndFee = 0;
+                if (1 - targetMargin / 100 > 0) {
+                    priceBeforeVATAndFee = totalCostPerUnit / (1 - targetMargin / 100);
+                }
+                const profitAmount = priceBeforeVATAndFee - totalCostPerUnit;
+
+                // 6. Price Including VAT
+                const vatAmount = priceBeforeVATAndFee * (vatRate / 100);
+                const priceIncludingVAT = priceBeforeVATAndFee + vatAmount;
+
+                // 7. Final Price (including Card Fee)
+                let finalPrice = 0;
+                if (1 - cardFee / 100 > 0) {
+                    finalPrice = priceIncludingVAT / (1 - cardFee / 100);
+                }
+                const feeAmount = finalPrice - priceIncludingVAT; // Fee is calculated on the price including VAT
+
+                // Store breakdown data
+                currentBreakdownData = {
+                    greenBeanCost,
+                    roastingLoss,
+                    unitWeightG,
+                    roastedBeanCostPerKg,
+                    materialCostPerUnit,
+                    roastingLabor,
+                    packagingCost,
+                    processingCostPerUnit,
+                    totalCostPerUnit,
+                    targetMargin,
+                    priceBeforeVATAndFee,
+                    profitAmount,
+                    vatRate,
+                    vatAmount,
+                    priceIncludingVAT,
+                    cardFee,
+                    finalPrice,
+                    feeAmount
+                };
+
+                // Update display
+                displays.totalCost.textContent = formatCurrency(totalCostPerUnit);
+                displays.profit.textContent = formatCurrency(profitAmount);
+                displays.vatAmount.textContent = formatCurrency(vatAmount); // Display VAT amount
+                displays.feeAmount.textContent = formatCurrency(feeAmount);
+                displays.finalPrice.textContent = formatCurrency(finalPrice);
+                
+                updateChart([materialCostPerUnit, processingCostPerUnit, profitAmount, vatAmount, feeAmount]);
+            };
+            
+            const initChart = () => {
+                const ctx = document.getElementById('costStructureChart').getContext('2d');
+                costChart = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['원재료비', '가공비', '이윤', '부가세', '결제 수수료'], // Added '부가세'
+                        datasets: [{
+                            data: [0, 0, 0, 0, 0], // Added new data slot
+                            backgroundColor: [
+                                'rgba(120, 113, 108, 0.7)', // stone-500
+                                'rgba(217, 119, 6, 0.7)',  // amber-600
+                                'rgba(251, 191, 36, 0.7)', // amber-400
+                                'rgba(76, 175, 80, 0.7)',  // Green for VAT (new color)
+                                'rgba(252, 211, 77, 0.5)'  // amber-300
+                            ],
+                            borderColor: [
+                                'rgb(120, 113, 108)', 
+                                'rgb(217, 119, 6)',
+                                'rgb(251, 191, 36)',
+                                'rgb(76, 175, 80)', 
+                                'rgb(252, 211, 77)'
+                            ],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                                labels: {
+                                    font: {
+                                        family: "'Noto Sans KR', sans-serif"
+                                    }
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        let label = context.label || '';
+                                        if (label) {
+                                            label += ': ';
+                                        }
+                                        if (context.parsed !== null) {
+                                            label += formatCurrency(context.parsed);
+                                        }
+                                        return label;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            };
+
+            const updateChart = (data) => {
+                if(costChart) {
+                    costChart.data.datasets[0].data = data;
+                    costChart.update();
+                }
+            };
+            
+            const showBreakdown = () => {
+                const data = currentBreakdownData;
+                let contentHTML = `
+                    <div class="breakdown-step">
+                        <p><strong>1. kg당 로스팅 후 생두 원가:</strong></p>
+                        <p>${formatCurrency(data.greenBeanCost)} (생두 단가) / (1 - ${data.roastingLoss}% / 100) = <strong>${formatCurrency(data.roastedBeanCostPerKg)}/kg</strong></p>
+                    </div>
+                    <div class="breakdown-step">
+                        <p><strong>2. 판매 단위당 (예: ${data.unitWeightG}g) 원재료비:</strong></p>
+                        <p>${formatCurrency(data.roastedBeanCostPerKg)} (로스팅 후 kg당 원가) * ${data.unitWeightG / 1000} kg = <strong>${formatCurrency(data.materialCostPerUnit)}</strong></p>
+                    </div>
+                    <div class="breakdown-step">
+                        <p><strong>3. 판매 단위당 가공비:</strong></p>
+                        <p>${formatCurrency(data.roastingLabor)} (로스팅 인건비) + ${formatCurrency(data.packagingCost)} (포장재 비용) = <strong>${formatCurrency(data.processingCostPerUnit)}</strong></p>
+                    </div>
+                    <div class="breakdown-step">
+                        <p><strong>4. 판매 단위당 총 원가 (총 제조 비용):</strong></p>
+                        <p>${formatCurrency(data.materialCostPerUnit)} (원재료비) + ${formatCurrency(data.processingCostPerUnit)} (가공비) = <strong>${formatCurrency(data.totalCostPerUnit)}</strong></p>
+                    </div>
+                    <div class="breakdown-step">
+                        <p><strong>5. 목표 마진율 ${data.targetMargin}% 적용 가격 (부가세 및 수수료 미포함):</strong></p>
+                        <p>${formatCurrency(data.totalCostPerUnit)} (총 원가) / (1 - ${data.targetMargin}% / 100) = <strong>${formatCurrency(data.priceBeforeVATAndFee)}</strong></p>
+                        <p>이윤 (마진): ${formatCurrency(data.profitAmount)}</p>
+                    </div>
+                     <div class="breakdown-step">
+                        <p><strong>6. 부가세 ${data.vatRate}% 적용 가격:</strong></p>
+                        <p>${formatCurrency(data.priceBeforeVATAndFee)} * (1 + ${data.vatRate}% / 100) = <strong>${formatCurrency(data.priceIncludingVAT)}</strong></p>
+                        <p>부가세 금액: ${formatCurrency(data.vatAmount)}</p>
+                    </div>
+                    <div class="breakdown-step">
+                        <p><strong>7. 최종 판매가 (카드 수수료 ${data.cardFee}% 포함):</strong></p>
+                        <p>${formatCurrency(data.priceIncludingVAT)} (부가세 포함 가격) / (1 - ${data.cardFee}% / 100) = <strong>${formatCurrency(data.finalPrice)}</strong></p>
+                        <p>결제 수수료 금액: ${formatCurrency(data.feeAmount)}</p>
+                    </div>
+                `;
+                breakdownElements.content.innerHTML = contentHTML;
+                breakdownElements.modal.classList.add('show');
+            };
+
+            const hideBreakdown = () => {
+                breakdownElements.modal.classList.remove('show');
+            };
+            
+            // Event Listeners
+            Object.values(inputs).forEach(input => {
+                input.addEventListener('input', calculate);
+            });
+
+            breakdownElements.showBtn.addEventListener('click', showBreakdown);
+            breakdownElements.closeBtn.addEventListener('click', hideBreakdown);
+            // Close modal when clicking outside content
+            breakdownElements.modal.addEventListener('click', (e) => {
+                if (e.target === breakdownElements.modal) {
+                    hideBreakdown();
+                }
+            });
+
+            // Initial calculation
+            initChart();
+            calculate();
+        });
+    </script>
+</body>
+</html>
