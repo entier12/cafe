@@ -10,8 +10,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
     <!-- Chosen Palette: Warm Neutrals (Stone, Amber) -->
-    <!-- Application Structure Plan: A responsive, two-column dashboard-style calculator. The left column contains all user inputs (costs, margins), grouped logically. The right column displays the calculated results and a dynamic doughnut chart visualizing the cost breakdown. This structure provides immediate feedback and allows users to easily conduct "what-if" analysis by adjusting inputs and seeing the impact on the price and cost structure instantly, making the complex calculation process intuitive and user-friendly. A modal for calculation breakdown is added for transparency. -->
-    <!-- Visualization & Content Choices: Report Info: Cost components (bean cost, loss, labor, etc.), VAT. Goal: Allow users to calculate and understand their pricing structure, including VAT, and see step-by-step calculations. Viz/Presentation: Interactive form with number inputs and sliders. Dynamic text fields for results. A dynamic doughnut chart for visualizing cost proportions (including VAT). A modal popup for detailed calculation breakdown. Interaction: All input fields trigger immediate recalculation and chart update. A dedicated button triggers the calculation breakdown modal. Justification: This interactive approach provides instant visual feedback and step-by-step transparency, enhancing user understanding far beyond a static spreadsheet. Library/Method: Vanilla JS for logic, Chart.js for the doughnut chart on a Canvas element. -->
+    <!-- Application Structure Plan: A responsive, two-column dashboard-style calculator. The left column contains all user inputs (costs, margins), grouped logically. The right column displays the calculated results and a dynamic doughnut chart visualizing the cost breakdown. This structure provides immediate feedback and allows users to easily conduct "what-if" analysis by adjusting inputs and seeing the impact on the price and cost structure instantly, making the complex calculation process intuitive and user-friendly. A modal for calculation breakdown is added for transparency, and a new modal for detailed roasting labor cost calculation is also introduced for better granularity. -->
+    <!-- Visualization & Content Choices: Report Info: Cost components (bean cost, loss, labor, etc.), VAT, detailed labor cost. Goal: Allow users to calculate and understand their pricing structure, including VAT, see step-by-step calculations, and precisely determine roasting labor costs. Viz/Presentation: Interactive form with number inputs and sliders. Dynamic text fields for results. A dynamic doughnut chart for visualizing cost proportions (including VAT). A modal popup for detailed calculation breakdown. A new dedicated modal for roasting labor cost calculation with its own inputs and calculated output. Interaction: All input fields trigger immediate recalculation and chart update. Dedicated buttons trigger both the main calculation breakdown modal and the new roasting labor cost calculation modal. Justification: This interactive approach provides instant visual feedback, step-by-step transparency, and a granular control over specific cost components, enhancing user understanding and precision. Library/Method: Vanilla JS for logic, Chart.js for the doughnut chart on a Canvas element. -->
     <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
     <style>
         body {
@@ -123,7 +123,12 @@
                         </div>
                         <div class="input-group">
                             <label for="roastingLabor">로스팅 인건비</label>
-                            <input type="number" id="roastingLabor" class="input-field" value="300">
+                            <div class="flex items-center">
+                                <input type="number" id="roastingLabor" class="input-field flex-grow" value="300">
+                                <button id="openLaborCostModalBtn" class="ml-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-md shadow-sm hover:bg-gray-300 transition-colors text-sm">
+                                    계산
+                                </button>
+                            </div>
                         </div>
                          <div class="input-group">
                             <label for="packagingCost">포장재 비용</label>
@@ -205,6 +210,36 @@
         </div>
     </div>
 
+    <!-- Labor Cost Calculation Modal -->
+    <div id="laborCostModal" class="modal-overlay">
+        <div class="modal-content relative">
+            <button id="closeLaborCostModalBtn" class="modal-close-button">&times;</button>
+            <h3 class="text-2xl font-bold mb-4 border-b pb-2 text-gray-700">로스팅 인건비 산정</h3>
+            <div class="text-gray-700 space-y-4">
+                <p class="text-sm text-gray-600">판매 단위(${document.getElementById('unitWeight')?.value || 200}g) 당 로스팅 인건비를 계산합니다.</p>
+                <div class="input-group">
+                    <label for="hourlyWage">시급 (원)</label>
+                    <input type="number" id="hourlyWage" class="input-field" value="9860">
+                </div>
+                <div class="input-group">
+                    <label for="roastingTimeMinutes">1회 로스팅 시간 (분)</label>
+                    <input type="number" id="roastingTimeMinutes" class="input-field" value="20">
+                </div>
+                <div class="input-group">
+                    <label for="batchSizeKg">1회 로스팅 원두량 (kg)</label>
+                    <input type="number" id="batchSizeKg" class="input-field" value="5">
+                </div>
+                <div class="mt-6 p-4 bg-amber-50 rounded-lg border border-amber-200">
+                    <p class="text-lg text-gray-700">판매 단위(${document.getElementById('unitWeight')?.value || 200}g) 당 로스팅 인건비:</p>
+                    <p id="calculatedLaborCost" class="text-2xl font-bold text-amber-700 mt-1">0 원</p>
+                </div>
+                <button id="applyLaborCostBtn" class="w-full mt-6 px-6 py-3 bg-amber-600 text-white rounded-md shadow-md hover:bg-amber-700 transition-colors text-lg">
+                    적용하기
+                </button>
+            </div>
+        </div>
+    </div>
+
     <footer class="mt-8 py-4 text-center text-gray-500 text-sm">
         <p>만든 사람: <a href="https://www.instagram.com/rangxmin" target="_blank" class="text-amber-600 hover:underline">@rangxmin</a></p>
     </footer>
@@ -218,19 +253,19 @@
                 roastingLabor: document.getElementById('roastingLabor'),
                 packagingCost: document.getElementById('packagingCost'),
                 cardFee: document.getElementById('cardFee'),
-                vatRate: document.getElementById('vatRate'), // New VAT input
+                vatRate: document.getElementById('vatRate'),
                 targetMargin: document.getElementById('targetMargin')
             };
 
             const displays = {
                 roastingLossValue: document.getElementById('roastingLossValue'),
                 cardFeeValue: document.getElementById('cardFeeValue'),
-                vatRateValue: document.getElementById('vatRateValue'), // New VAT display
+                vatRateValue: document.getElementById('vatRateValue'),
                 targetMarginValue: document.getElementById('targetMarginValue'),
                 finalPrice: document.getElementById('finalPrice'),
                 totalCost: document.getElementById('totalCost'),
                 profit: document.getElementById('profit'),
-                vatAmount: document.getElementById('vatAmount'), // New VAT amount display
+                vatAmount: document.getElementById('vatAmount'),
                 feeAmount: document.getElementById('feeAmount')
             };
 
@@ -241,8 +276,20 @@
                 closeBtn: document.getElementById('closeModalBtn')
             };
 
+            const laborCostModalElements = {
+                modal: document.getElementById('laborCostModal'),
+                openBtn: document.getElementById('openLaborCostModalBtn'),
+                closeBtn: document.getElementById('closeLaborCostModalBtn'),
+                hourlyWage: document.getElementById('hourlyWage'),
+                roastingTimeMinutes: document.getElementById('roastingTimeMinutes'),
+                batchSizeKg: document.getElementById('batchSizeKg'),
+                calculatedLaborCostDisplay: document.getElementById('calculatedLaborCost'),
+                applyBtn: document.getElementById('applyLaborCostBtn'),
+                unitWeightLabel: laborCostModal.querySelector('p.text-sm') // Select the specific label
+            };
+
             let costChart;
-            let currentBreakdownData = {}; // To store intermediate calculation results for breakdown
+            let currentBreakdownData = {};
 
             const formatCurrency = (value) => {
                 return new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW' }).format(value);
@@ -252,56 +299,50 @@
                 const greenBeanCost = parseFloat(inputs.greenBeanCost.value) || 0;
                 const roastingLoss = parseFloat(inputs.roastingLoss.value) || 0;
                 const unitWeightG = parseFloat(inputs.unitWeight.value) || 0;
-                const unitWeightKg = unitWeightG / 1000; // Convert grams to kilograms
+                const unitWeightKg = unitWeightG / 1000;
                 
                 const roastingLabor = parseFloat(inputs.roastingLabor.value) || 0;
                 const packagingCost = parseFloat(inputs.packagingCost.value) || 0;
 
                 const cardFee = parseFloat(inputs.cardFee.value) || 0;
-                const vatRate = parseFloat(inputs.vatRate.value) || 0; // Get VAT rate
+                const vatRate = parseFloat(inputs.vatRate.value) || 0;
                 const targetMargin = parseFloat(inputs.targetMargin.value) || 0;
                 
-                // Update slider display values
                 displays.roastingLossValue.textContent = `${roastingLoss}%`;
                 displays.cardFeeValue.textContent = `${cardFee.toFixed(1)}%`;
-                displays.vatRateValue.textContent = `${vatRate}%`; // Update VAT display
+                displays.vatRateValue.textContent = `${vatRate}%`;
                 displays.targetMarginValue.textContent = `${targetMargin}%`;
 
-                // --- Calculations ---
-                // 1. Roasted Bean Cost Per Kg
+                // Update labor cost modal's unit weight display
+                if (laborCostModalElements.unitWeightLabel) {
+                    laborCostModalElements.unitWeightLabel.textContent = `판매 단위(${unitWeightG}g) 당 로스팅 인건비를 계산합니다.`;
+                }
+
                 let roastedBeanCostPerKg = 0;
                 if (1 - roastingLoss / 100 > 0) {
                     roastedBeanCostPerKg = greenBeanCost / (1 - roastingLoss / 100);
                 }
                 
-                // 2. Material Cost Per Unit (e.g., per 200g bag)
                 const materialCostPerUnit = roastedBeanCostPerKg * unitWeightKg;
-
-                // 3. Processing Cost Per Unit
                 const processingCostPerUnit = roastingLabor + packagingCost;
                 
-                // 4. Total Cost Per Unit (Cost of Goods Sold)
                 const totalCostPerUnit = materialCostPerUnit + processingCostPerUnit;
 
-                // 5. Price Before VAT & Card Fee (Total Cost + Profit)
                 let priceBeforeVATAndFee = 0;
                 if (1 - targetMargin / 100 > 0) {
                     priceBeforeVATAndFee = totalCostPerUnit / (1 - targetMargin / 100);
                 }
                 const profitAmount = priceBeforeVATAndFee - totalCostPerUnit;
 
-                // 6. Price Including VAT
                 const vatAmount = priceBeforeVATAndFee * (vatRate / 100);
                 const priceIncludingVAT = priceBeforeVATAndFee + vatAmount;
 
-                // 7. Final Price (including Card Fee)
                 let finalPrice = 0;
                 if (1 - cardFee / 100 > 0) {
                     finalPrice = priceIncludingVAT / (1 - cardFee / 100);
                 }
-                const feeAmount = finalPrice - priceIncludingVAT; // Fee is calculated on the price including VAT
+                const feeAmount = finalPrice - priceIncludingVAT;
 
-                // Store breakdown data
                 currentBreakdownData = {
                     greenBeanCost,
                     roastingLoss,
@@ -323,10 +364,9 @@
                     feeAmount
                 };
 
-                // Update display
                 displays.totalCost.textContent = formatCurrency(totalCostPerUnit);
                 displays.profit.textContent = formatCurrency(profitAmount);
-                displays.vatAmount.textContent = formatCurrency(vatAmount); // Display VAT amount
+                displays.vatAmount.textContent = formatCurrency(vatAmount);
                 displays.feeAmount.textContent = formatCurrency(feeAmount);
                 displays.finalPrice.textContent = formatCurrency(finalPrice);
                 
@@ -338,15 +378,15 @@
                 costChart = new Chart(ctx, {
                     type: 'doughnut',
                     data: {
-                        labels: ['원재료비', '가공비', '이윤', '부가세', '결제 수수료'], // Added '부가세'
+                        labels: ['원재료비', '가공비', '이윤', '부가세', '결제 수수료'],
                         datasets: [{
-                            data: [0, 0, 0, 0, 0], // Added new data slot
+                            data: [0, 0, 0, 0, 0],
                             backgroundColor: [
-                                'rgba(120, 113, 108, 0.7)', // stone-500
-                                'rgba(217, 119, 6, 0.7)',  // amber-600
-                                'rgba(251, 191, 36, 0.7)', // amber-400
-                                'rgba(76, 175, 80, 0.7)',  // Green for VAT (new color)
-                                'rgba(252, 211, 77, 0.5)'  // amber-300
+                                'rgba(120, 113, 108, 0.7)',
+                                'rgba(217, 119, 6, 0.7)',
+                                'rgba(251, 191, 36, 0.7)',
+                                'rgba(76, 175, 80, 0.7)',
+                                'rgba(252, 211, 77, 0.5)'
                             ],
                             borderColor: [
                                 'rgb(120, 113, 108)', 
@@ -438,6 +478,44 @@
             const hideBreakdown = () => {
                 breakdownElements.modal.classList.remove('show');
             };
+
+            const calculateLaborCost = () => {
+                const hourlyWage = parseFloat(laborCostModalElements.hourlyWage.value) || 0;
+                const roastingTimeMinutes = parseFloat(laborCostModalElements.roastingTimeMinutes.value) || 0;
+                const batchSizeKg = parseFloat(laborCostModalElements.batchSizeKg.value) || 0;
+                const unitWeightG = parseFloat(inputs.unitWeight.value) || 200; // Get unit weight from main calculator
+
+                let laborCostPerUnit = 0;
+                if (hourlyWage > 0 && roastingTimeMinutes > 0 && batchSizeKg > 0 && unitWeightG > 0) {
+                    const roastingTimeHours = roastingTimeMinutes / 60;
+                    const laborCostPerBatch = hourlyWage * roastingTimeHours;
+                    const unitsPerBatch = (batchSizeKg * 1000) / unitWeightG;
+                    
+                    if (unitsPerBatch > 0) {
+                        laborCostPerUnit = laborCostPerBatch / unitsPerBatch;
+                    }
+                }
+                laborCostModalElements.calculatedLaborCostDisplay.textContent = formatCurrency(laborCostPerUnit);
+                return laborCostPerUnit;
+            };
+
+            const showLaborCostModal = () => {
+                laborCostModalElements.modal.classList.add('show');
+                // Ensure the unit weight label is updated when opening the modal
+                laborCostModalElements.unitWeightLabel.textContent = `판매 단위(${inputs.unitWeight.value}g) 당 로스팅 인건비를 계산합니다.`;
+                calculateLaborCost(); // Calculate initial value when modal opens
+            };
+
+            const hideLaborCostModal = () => {
+                laborCostModalElements.modal.classList.remove('show');
+            };
+
+            const applyLaborCost = () => {
+                const calculatedValue = calculateLaborCost();
+                inputs.roastingLabor.value = Math.round(calculatedValue); // Apply rounded value
+                hideLaborCostModal();
+                calculate(); // Recalculate main app
+            };
             
             // Event Listeners
             Object.values(inputs).forEach(input => {
@@ -446,10 +524,22 @@
 
             breakdownElements.showBtn.addEventListener('click', showBreakdown);
             breakdownElements.closeBtn.addEventListener('click', hideBreakdown);
-            // Close modal when clicking outside content
             breakdownElements.modal.addEventListener('click', (e) => {
                 if (e.target === breakdownElements.modal) {
                     hideBreakdown();
+                }
+            });
+
+            // Labor Cost Modal Listeners
+            laborCostModalElements.openBtn.addEventListener('click', showLaborCostModal);
+            laborCostModalElements.closeBtn.addEventListener('click', hideLaborCostModal);
+            laborCostModalElements.hourlyWage.addEventListener('input', calculateLaborCost);
+            laborCostModalElements.roastingTimeMinutes.addEventListener('input', calculateLaborCost);
+            laborCostModalElements.batchSizeKg.addEventListener('input', calculateLaborCost);
+            laborCostModalElements.applyBtn.addEventListener('click', applyLaborCost);
+            laborCostModalElements.modal.addEventListener('click', (e) => {
+                if (e.target === laborCostModalElements.modal) {
+                    hideLaborCostModal();
                 }
             });
 
