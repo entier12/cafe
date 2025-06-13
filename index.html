@@ -21,8 +21,8 @@
             @apply block text-sm font-medium text-gray-600 mb-1;
         }
         .input-field {
-            /* Changed background to bg-gray-100 for better visibility */
-            @apply w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-amber-500 focus:border-amber-500 bg-gray-100;
+            /* Changed background to bg-gray-100 for better visibility and added rounded-md for rounded corners */
+            @apply w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-amber-500 focus:border-amber-500 bg-gray-100 rounded-md;
         }
         .slider-value {
             @apply text-lg font-bold text-amber-700 ml-2;
@@ -383,13 +383,13 @@
 
             const historyElements = {
                 saveBtn: document.getElementById('savePriceBtn'),
-                nameInput: document.getElementById('historyNameInput'), // New name input
+                nameInput: document.getElementById('historyNameInput'),
                 list: document.getElementById('priceHistoryList'),
                 clearBtn: document.getElementById('clearHistoryBtn')
             };
 
             let costChart;
-            let currentBreakdownData = {}; // To store intermediate calculation results for breakdown
+            let currentBreakdownData = {};
 
             const formatCurrency = (value) => {
                 return new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW' }).format(value);
@@ -455,9 +455,9 @@
                     packagingCost,
                     processingCostPerUnit,
                     totalCostPerUnit,
-                    targetMargin, // Store target margin
+                    targetMargin,
                     priceBeforeVATAndFee,
-                    profitAmount, // Store profit amount
+                    profitAmount,
                     vatRate,
                     vatAmount,
                     priceIncludingVAT,
@@ -698,12 +698,12 @@
                 const recordName = historyElements.nameInput.value.trim();
                 
                 const newEntry = {
-                    name: recordName || `기록 ${dateTimeString}`, // Use custom name or default
+                    name: recordName || `기록 ${dateTimeString}`,
                     finalPrice: finalPriceValue,
                     date: dateTimeString,
-                    profitAmount: currentBreakdownData.profitAmount, // Include profit
-                    targetMargin: currentBreakdownData.targetMargin, // Include target margin
-                    inputs: { // Save current input values for context
+                    profitAmount: currentBreakdownData.profitAmount,
+                    targetMargin: currentBreakdownData.targetMargin,
+                    inputs: {
                         greenBeanCost: inputs.greenBeanCost.value,
                         roastingLoss: inputs.roastingLoss.value,
                         unitWeight: inputs.unitWeight.value,
@@ -714,10 +714,10 @@
                         targetMargin: inputs.targetMargin.value
                     }
                 };
-                history.unshift(newEntry); // Add to the beginning
+                history.unshift(newEntry);
                 localStorage.setItem('priceHistory', JSON.stringify(history));
                 loadPriceHistory();
-                historyElements.nameInput.value = ''; // Clear name input after saving
+                historyElements.nameInput.value = '';
             };
 
             const clearPriceHistory = () => {
